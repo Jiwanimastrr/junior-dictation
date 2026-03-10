@@ -155,10 +155,16 @@
         // Structure: { "ch_id_session_id_question_idx": { fast: true, normal: false, slow: false } }
         let progress = {};
 
-        function playAudio(audioPath, qId, type) {
+        function playAudio(audioPath, qId, type, index) {
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio.currentTime = 0;
+            }
+
+            // Check if question is locked (previous one not finished)
+            if (index > 0 && !isQuestionFinished(index - 1)) {
+                alert('이전 문제를 먼저 완료해 주세요!');
+                return;
             }
 
             // Core logic: Fast -> Normal -> Slow
@@ -187,6 +193,13 @@
         const sessionBtns = document.querySelectorAll('.session-btn');
         const container = document.getElementById('dictation-container');
 
+        // Check if a specific question index is fully finished
+        function isQuestionFinished(idx) {
+            const qId = `${currentChapterId}_${currentSession}_${idx}`;
+            const p = progress[qId];
+            return p && p.fast && p.normal && p.slow;
+        }
+
         // Shuffle function
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -207,6 +220,7 @@
             chapterSelect.addEventListener('change', (e) => {
                 currentChapterId = parseInt(e.target.value);
                 progress = {}; // Reset progress on chapter change
+                window.currentShuffledData = null;
                 renderDictation();
             });
 
@@ -216,6 +230,7 @@
                     e.target.classList.add('active');
                     currentSession = parseInt(e.target.dataset.session);
                     progress = {}; // Reset progress on day change
+                    window.currentShuffledData = null;
                     renderDictation();
                 });
             });
@@ -243,7 +258,7 @@
             if (!onlyButtons) {
                 const guide = document.createElement('div');
                 guide.className = 'neu-pressed p-5 mb-8 text-sm text-gray-500 leading-relaxed';
-                guide.innerHTML = `<i class="fas fa-magic mr-2 text-blue-400"></i> AI 원어민 음성을 단계별로 들어보세요!<br><span class="text-xs mt-1 block opacity-70">규칙: 🐇Fast를 들어야 ▶️Normal이 열리고, Normal을 들어야 🐢Slow가 열립니다.</span>`;
+                guide.innerHTML = `<i class="fas fa-magic mr-2 text-blue-400"></i><span class="text-xs mt- block opacity-70">규칙: 한 문제의 🐇Fast, ▶️Normal, 🐢Slow를 모두 들어야 다음 문제로 넘어갈 수 있습니다.</span>`;
                 container.appendChild(guide);
             }
 
@@ -252,26 +267,30 @@
                 const wordIdx = item.originalIdx;
                 const p = progress[qId] || { fast: false, normal: false, slow: false };
 
+                // Question is locked if previous ones are not finished
+                const isLocked = index > 0 && !isQuestionFinished(index - 1);
+
                 if (onlyButtons) {
                     const btnContainer = document.getElementById(`btn-group-${index}`);
                     if (btnContainer) {
-                        btnContainer.innerHTML = generateButtonHtml(qId, wordIdx, p);
+                        btnContainer.innerHTML = generateButtonHtml(qId, wordIdx, p, index, isLocked);
                     }
                     return;
                 }
 
                 const card = document.createElement('div');
-                card.className = 'neu-flat p-6 mb-10 overflow-hidden';
+                card.className = `neu-flat p-6 mb-10 overflow-hidden transition-opacity duration-300 ${isLocked ? 'opacity-40' : 'opacity-100'}`;
                 card.innerHTML = `
                     <div class="flex items-center gap-3 mb-6 border-l-4 border-blue-500 pl-3">
                         <span class="font-black text-xl text-blue-600">Q${String(index + 1).padStart(2, '0')}</span>
+                        ${isLocked ? '<i class="fas fa-lock text-gray-400 ml-auto"></i>' : ''}
                     </div>
                     
                     <div class="grid grid-cols-3 gap-4 mb-8" id="btn-group-${index}">
-                        ${generateButtonHtml(qId, wordIdx, p)}
+                        ${generateButtonHtml(qId, wordIdx, p, index, isLocked)}
                     </div>
                     <div class="flex flex-col gap-3">
-                        <button onclick="toggleAnswer('ans-${index}')" class="neu-btn py-2 px-4 text-xs font-bold text-gray-500 w-fit">
+                        <button onclick="toggleAnswer('ans-${index}')" class="neu-btn py-2 px-4 text-xs font-bold text-gray-500 w-fit" ${isLocked ? 'disabled' : ''}>
                             <i class="fas fa-check-circle mr-1"></i> Check Korean Meaning
                         </button>
                         <div id="ans-${index}" class="hidden neu-pressed p-4 animate-fadeIn">
@@ -283,24 +302,26 @@
             });
         }
 
-        function generateButtonHtml(qId, wordIdx, p) {
+        function generateButtonHtml(qId, wordIdx, p, index, isLocked) {
             return `
-                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_fast.mp3', '${qId}', 'fast')" class="neu-btn py-4 flex flex-col items-center gap-1 group ${p.fast ? 'active' : ''}">
+                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_fast.mp3', '${qId}', 'fast', ${index})" 
+                        class="neu-btn py-4 flex flex-col items-center gap-1 group ${p.fast ? 'active' : ''}"
+                        ${isLocked ? 'disabled' : ''}>
                     <span class="text-xl group-active:scale-90 transition-transform">🐇</span>
                     <span class="text-[10px] uppercase font-black text-red-400">Fast</span>
                     ${p.fast ? '<i class="fas fa-check-circle text-[10px] text-green-500 absolute top-1 right-1"></i>' : ''}
                 </button>
-                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_normal.mp3', '${qId}', 'normal')" 
+                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_normal.mp3', '${qId}', 'normal', ${index})" 
                         class="neu-btn py-4 flex flex-col items-center gap-1 group ${p.normal ? 'active' : ''}" 
-                        ${!p.fast ? 'disabled' : ''}>
+                        ${!p.fast || isLocked ? 'disabled' : ''}>
                     <span class="text-xl group-active:scale-90 transition-transform">▶️</span>
                     <span class="text-[10px] uppercase font-black text-blue-400">Normal</span>
                     ${!p.fast ? '<i class="fas fa-lock lock-icon"></i>' : ''}
                     ${p.normal ? '<i class="fas fa-check-circle text-[10px] text-green-500 absolute top-1 right-1"></i>' : ''}
                 </button>
-                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_slow.mp3', '${qId}', 'slow')" 
+                <button onclick="playAudio('audio/chapter_${currentChapterId}/sen_${wordIdx}_slow.mp3', '${qId}', 'slow', ${index})" 
                         class="neu-btn py-4 flex flex-col items-center gap-1 group ${p.slow ? 'active' : ''}" 
-                        ${!p.normal ? 'disabled' : ''}>
+                        ${!p.normal || isLocked ? 'disabled' : ''}>
                     <span class="text-xl group-active:scale-90 transition-transform">🐢</span>
                     <span class="text-[10px] uppercase font-black text-green-400">Slow</span>
                     ${!p.normal ? '<i class="fas fa-lock lock-icon"></i>' : ''}
