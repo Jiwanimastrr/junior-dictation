@@ -1,7 +1,7 @@
 const db = [
   {
     "id": 1,
-    "title": "home",
+    "title": "Home",
     "words": [
       {
         "id": 1,
@@ -1711,7 +1711,7 @@ const db = [
   },
   {
     "id": 6,
-    "title": "traffic",
+    "title": "Traffic",
     "words": [
       {
         "id": 1,
@@ -2053,7 +2053,7 @@ const db = [
   },
   {
     "id": 7,
-    "title": "condition & situation",
+    "title": "Condition & Situation",
     "words": [
       {
         "id": 1,
