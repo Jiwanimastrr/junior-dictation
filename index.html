@@ -272,8 +272,16 @@
 
                 if (onlyButtons) {
                     const btnContainer = document.getElementById(`btn-group-${index}`);
+                    const cardElement = btnContainer?.closest('.neu-flat');
                     if (btnContainer) {
                         btnContainer.innerHTML = generateButtonHtml(qId, wordIdx, p, index, isLocked);
+                    }
+                    if (cardElement) {
+                        if (isLocked) {
+                            cardElement.classList.replace('opacity-100', 'opacity-40');
+                        } else {
+                            cardElement.classList.replace('opacity-40', 'opacity-100');
+                        }
                     }
                     return;
                 }
